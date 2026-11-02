@@ -1,0 +1,177 @@
+
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.models import Model
+import matplotlib.pyplot as plt
+
+print("TensorFlow version:", tf.__version__)
+print("Libraries imported successfully!")
+
+
+
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+
+print("Training images:", x_train.shape)
+print("Training labels:", y_train.shape)
+print("Testing images:", x_test.shape)
+print("Testing labels:", y_test.shape)
+
+
+
+x_train = x_train.astype("float32") / 255.0
+x_test = x_test.astype("float32") / 255.0
+
+print("Minimum pixel value:", x_train.min())
+print("Maximum pixel value:", x_train.max())
+
+
+x_train = x_train.reshape(
+    len(x_train), np.prod(x_train.shape[1:])
+)
+
+x_test = x_test.reshape(
+    len(x_test), np.prod(x_test.shape[1:])
+)
+
+print("Training data shape:", x_train.shape)
+print("Testing data shape:", x_test.shape)
+
+
+
+# Train using only digit 3
+train_normal = x_train[y_train == 3]
+
+# Select normal digit 3 examples from the test data
+test_normal = x_test[y_test == 3]
+
+print("Normal training examples:", train_normal.shape[0])
+print("Normal test examples:", test_normal.shape[0])
+
+
+encoding_dim = 32
+
+input_img = Input(shape=(784,))
+
+encoded = Dense(128, activation="relu")(input_img)
+encoded = Dense(64, activation="relu")(encoded)
+encoded = Dense(encoding_dim, activation="relu")(encoded)
+
+print("Encoder defined successfully!")
+
+
+decoded = Dense(64, activation="relu")(encoded)
+decoded = Dense(128, activation="relu")(decoded)
+decoded = Dense(784, activation="sigmoid")(decoded)
+
+print("Decoder defined successfully!")
+
+
+autoencoder = Model(input_img, decoded)
+
+autoencoder.compile(
+    optimizer="adam",
+    loss="mse"
+)
+
+autoencoder.summary()
+
+
+print("Training the autoencoder...")
+
+history = autoencoder.fit(
+    train_normal,
+    train_normal,
+    epochs=50,
+    batch_size=256,
+    shuffle=True,
+    validation_data=(test_normal, test_normal)
+)
+
+print("Training completed!")
+
+
+# Select normal images: digit 3
+normal_test_data = x_test[y_test == 3]
+
+# Select anomalous images: digit 7
+anomalous_test_data = x_test[y_test == 7]
+
+# Combine 100 normal and 100 anomalous images
+test_data = np.concatenate([
+    normal_test_data[:100],
+    anomalous_test_data[:100]
+])
+
+# Labels: 0 means normal, 1 means anomaly
+test_labels = np.array([0] * 100 + [1] * 100)
+
+print("Total test samples:", len(test_data))
+print("Normal samples:", np.sum(test_labels == 0))
+print("Anomalous samples:", np.sum(test_labels == 1))
+
+
+# Reconstruct the test images
+reconstructions = autoencoder.predict(test_data)
+
+# Calculate the reconstruction error for each image
+mse = np.mean(
+    np.power(test_data - reconstructions, 2),
+    axis=1
+)
+
+print("Number of reconstruction errors:", len(mse))
+print("First five errors:", mse[:5])
+
+
+
+
+plt.figure(figsize=(10, 6))
+
+plt.hist(
+    mse[test_labels == 0],
+    bins=50,
+    alpha=0.7,
+    label="Normal (Digit 3)"
+)
+
+plt.hist(
+    mse[test_labels == 1],
+    bins=50,
+    alpha=0.7,
+    label="Anomaly (Digit 7)"
+)
+
+plt.title("Reconstruction Error Distribution")
+plt.xlabel("Reconstruction Error (MSE)")
+plt.ylabel("Number of Samples")
+plt.legend()
+plt.show()
+
+
+
+
+# Calculate the threshold using normal-image errors
+threshold = (
+    np.mean(mse[test_labels == 0])
+    + 2 * np.std(mse[test_labels == 0])
+)
+
+print(f"Threshold for anomaly detection: {threshold:.4f}")
+
+# Flag images with error above the threshold
+anomalies_detected = mse > threshold
+
+print(
+    "Number of anomalies detected:",
+    np.sum(anomalies_detected)
+)
+
+print("Total number of test samples:", len(test_data))
+
+
+
+
+
+
+

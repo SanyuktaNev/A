@@ -1,0 +1,124 @@
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.datasets import mnist
+import numpy as np
+import matplotlib.pyplot as plt
+
+print("TensorFlow version:", tf.__version__)
+print("All packages imported successfully!")
+
+
+
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+
+print("Training images:", x_train.shape)
+print("Training labels:", y_train.shape)
+print("Testing images:", x_test.shape)
+print("Testing labels:", y_test.shape)
+
+
+
+plt.imshow(x_train[0], cmap="gray")
+plt.title(f"Actual digit: {y_train[0]}")
+plt.axis("off")
+plt.show()
+
+
+x_train = x_train.astype("float32") / 255.0
+x_test = x_test.astype("float32") / 255.0
+
+print("Minimum pixel value:", x_train.min())
+print("Maximum pixel value:", x_train.max())
+
+
+model = Sequential([
+    Flatten(input_shape=(28, 28)),
+    Dense(128, activation="relu"),
+    Dense(10, activation="softmax")
+])
+
+model.summary()
+
+
+model.compile(
+    optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+print("Model compiled successfully!")
+
+
+
+print("Training the model...")
+
+history = model.fit(
+    x_train,
+    y_train,
+    epochs=5,
+    batch_size=32,
+    validation_data=(x_test, y_test)
+)
+
+print("Training completed!")
+
+
+
+print("Evaluating the model...")
+
+test_loss, test_acc = model.evaluate(
+    x_test, y_test, verbose=2
+)
+
+print(f"Test loss: {test_loss:.4f}")
+print(f"Test accuracy: {test_acc * 100:.2f}%")
+
+
+
+print("Evaluating the model...")
+
+test_loss, test_acc = model.evaluate(
+    x_test, y_test, verbose=2
+)
+
+print(f"Test loss: {test_loss:.4f}")
+print(f"Test accuracy: {test_acc * 100:.2f}%")
+
+
+
+predictions = model.predict(x_test[:5])
+
+for i in range(5):
+    predicted_class = np.argmax(predictions[i])
+    true_class = y_test[i]
+
+    print(f"Image {i + 1}:")
+    print(f"Predicted digit: {predicted_class}")
+    print(f"Actual digit: {true_class}")
+    print()
+
+
+
+plt.figure(figsize=(10, 4))
+
+for i in range(5):
+    plt.subplot(1, 5, i + 1)
+    plt.imshow(x_test[i], cmap="gray")
+
+    predicted_class = np.argmax(predictions[i])
+    plt.title(
+        f"Pred: {predicted_class}\nTrue: {y_test[i]}"
+    )
+    plt.axis("off")
+
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+
+

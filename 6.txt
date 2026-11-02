@@ -1,0 +1,137 @@
+import os
+import tensorflow as tf
+import tensorflow_hub as hub
+import tensorflow_datasets as tfds
+import numpy as np
+import matplotlib.pyplot as plt
+
+from PIL import Image, ImageDraw, ImageFont
+
+print("Downloading and preparing the dataset...")
+
+dataset_name = "oxford_iiit_pet"
+
+(ds_train, ds_test), ds_info = tfds.load(
+    dataset_name,
+    split=["train", "test"],
+    with_info=True,
+    data_dir='./tfds',
+    shuffle_files=True
+)
+
+def preprocess(image, label):
+    image = tf.image.resize(image, (512, 512))
+    image = tf.cast(image, dtype=tf.float32) / 255.0
+    return image, label
+
+batch_size = 8
+
+ds_train = ds_train.map(
+    lambda x: (x['image'], x['label'])
+).map(preprocess).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+ds_test = ds_test.map(
+    lambda x: (x['image'], x['label'])
+).map(preprocess).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+print("Loading pre-trained EfficientDet-Lite0 model...")
+
+model_handle = "https://tfhub.dev/tensorflow/efficientdet/lite0/detection/1"
+
+detector = hub.load(model_handle)
+
+print("\nMaking a prediction on a test image...")
+
+test_image_raw, test_label_raw = next(iter(ds_test.unbatch()))
+
+test_image_np = test_image_raw.numpy()
+
+input_tensor = tf.expand_dims(test_image_raw, 0)
+
+detections = detector(input_tensor)
+
+num_detections = int(
+    detections['num_detections'][0].numpy()
+)
+
+detection_boxes = (
+    detections['detection_boxes'][0].numpy()[:num_detections]
+)
+
+detection_classes = (
+    detections['detection_classes'][0]
+    .numpy().astype(np.int64)[:num_detections]
+)
+
+detection_scores = (
+    detections['detection_scores'][0].numpy()[:num_detections]
+)
+
+
+image_for_drawing = (test_image_np * 255).astype(np.uint8)
+
+pil_image = Image.fromarray(image_for_drawing)
+
+draw = ImageDraw.Draw(pil_image)
+
+label_names = ds_info.features['label'].names
+
+print(f"Detected {num_detections} objects.")
+
+min_score_thresh = 0.5
+
+for i in range(num_detections):
+
+    if detection_scores[i] > min_score_thresh:
+
+        ymin, xmin, ymax, xmax = detection_boxes[i]
+
+        class_id = detection_classes[i]
+        score = detection_scores[i]
+
+        (im_width, im_height) = pil_image.size
+
+        (xmin, ymin, xmax, ymax) = (
+            xmin * im_width,
+            ymin * im_height,
+            xmax * im_width,
+            ymax * im_height
+        )
+
+        draw.rectangle(
+            [(xmin, ymin), (xmax, ymax)],
+            outline="red",
+            width=3
+        )
+
+        label_text = f'{label_names[class_id]}: {score:.2f}'
+
+        draw.text(
+            (xmin, ymin - 15),
+            label_text,
+            fill="red"
+        )
+
+plt.figure(figsize=(8, 8))
+
+plt.imshow(pil_image)
+
+plt.title("Object Detection using Transfer Learning")
+
+plt.axis('off')
+
+plt.show()
+
+print("\nCode execution complete.")
+
+
+
+
+
+
+
+
+
+
+
+

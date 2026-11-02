@@ -1,0 +1,184 @@
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import (
+    Conv2D, MaxPooling2D, Flatten, Dense
+)
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+import numpy as np
+import matplotlib.pyplot as plt
+
+print("TensorFlow version:", tf.__version__)
+print("Libraries imported successfully!")
+
+
+
+print("Loading the CIFAR-10 dataset...")
+
+(x_train, y_train), (x_test, y_test) = cifar10.load_data()
+
+print("Training images:", x_train.shape)
+print("Training labels:", y_train.shape)
+print("Testing images:", x_test.shape)
+print("Testing labels:", y_test.shape)
+
+
+
+class_names = [
+    "airplane", "automobile", "bird", "cat", "deer",
+    "dog", "frog", "horse", "ship", "truck"
+]
+
+plt.imshow(x_train[0])
+plt.title(class_names[int(y_train[0][0])])
+plt.axis("off")
+plt.show()
+
+
+# Normalize image pixel values
+x_train = x_train.astype("float32") / 255.0
+x_test = x_test.astype("float32") / 255.0
+
+# Convert labels into one-hot encoded vectors
+y_train = to_categorical(y_train, 10)
+y_test = to_categorical(y_test, 10)
+
+print("Training images shape:", x_train.shape)
+print("Training labels shape:", y_train.shape)
+print("First encoded label:", y_train[0])
+
+
+
+model = Sequential([
+    # First convolutional block
+    Conv2D(
+        32, (3, 3),
+        activation="relu",
+        padding="same",
+        input_shape=(32, 32, 3)
+    ),
+    MaxPooling2D((2, 2)),
+
+    # Second convolutional block
+    Conv2D(
+        64, (3, 3),
+        activation="relu",
+        padding="same"
+    ),
+    MaxPooling2D((2, 2)),
+
+    # Third convolutional block
+    Conv2D(
+        128, (3, 3),
+        activation="relu",
+        padding="same"
+    ),
+    MaxPooling2D((2, 2)),
+
+    # Convert feature maps into a vector
+    Flatten(),
+
+    # Fully connected hidden layer
+    Dense(128, activation="relu"),
+
+    # Output layer: 10 classes
+    Dense(10, activation="softmax")
+])
+
+model.summary()
+
+
+print("Compiling the CNN model...")
+
+model.compile(
+    optimizer="adam",
+    loss="categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+print("Model compiled successfully!")
+
+
+print("Training the CNN model...")
+
+history = model.fit(
+    x_train,
+    y_train,
+    epochs=15,
+    batch_size=64,
+    validation_data=(x_test, y_test)
+)
+
+print("Training completed!")
+
+
+print("Evaluating the CNN model...")
+
+test_loss, test_acc = model.evaluate(
+    x_test, y_test, verbose=2
+)
+
+print(f"Test loss: {test_loss:.4f}")
+print(f"Test accuracy: {test_acc * 100:.2f}%")
+
+
+plt.figure(figsize=(8, 4))
+
+plt.plot(history.history["loss"], label="Training Loss")
+plt.plot(history.history["val_loss"], label="Validation Loss")
+
+plt.title("CNN Training and Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+
+plt.figure(figsize=(8, 4))
+
+plt.plot(history.history["accuracy"], label="Training Accuracy")
+plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
+
+plt.title("CNN Training and Validation Accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+print("Making a prediction...")
+
+# Select the first test image
+img = np.expand_dims(x_test[0], axis=0)
+
+# Predict its class probabilities
+prediction = model.predict(img, verbose=0)
+
+# Find the class with the highest probability
+predicted_class = np.argmax(prediction[0])
+
+# Find the actual class
+actual_class = np.argmax(y_test[0])
+
+print("Predicted class:", class_names[predicted_class])
+print("Actual class:", class_names[actual_class])
+print(
+    f"Prediction confidence: "
+    f"{prediction[0][predicted_class] * 100:.2f}%"
+)
+
+
+
+
+
+
+
+
+
+
+
+

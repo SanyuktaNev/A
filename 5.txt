@@ -1,0 +1,113 @@
+import numpy as np
+import tensorflow as tf
+
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, Embedding, Lambda
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras import backend as K
+
+
+corpus = [
+    "the quick brown fox jumps over the lazy dog",
+    "the quick brown dog jumps over the lazy fox",
+    "a man is walking on the street",
+    "a dog is barking at the cat",
+    "the street is busy with people"
+]
+
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(corpus)
+
+word_index = tokenizer.word_index
+vocab_size = len(word_index) + 1
+
+print(f"Vocabulary Size: {vocab_size}")
+
+sequences = tokenizer.texts_to_sequences(corpus)
+
+window_size = 2
+data = []
+
+for sequence in sequences:
+    for i, word in enumerate(sequence):
+
+        context = []
+
+        for j in range(i - window_size, i + window_size + 1):
+            if j != i and 0 <= j < len(sequence):
+                context.append(sequence[j])
+
+        if context:
+            data.append((context, word))
+
+X_context = np.array([item[0] for item in data])
+y_target = np.array([item[1] for item in data])
+
+max_len = max(len(x) for x in X_context)
+
+X_context_padded = pad_sequences(
+    X_context,
+    maxlen=max_len,
+    padding='post'
+)
+
+y_target_one_hot = to_categorical(
+    y_target,
+    num_classes=vocab_size
+)
+
+embedding_dim = 100
+
+input_context = Input(shape=(max_len,))
+
+embedding_layer = Embedding(
+    input_dim=vocab_size,
+    output_dim=embedding_dim
+)(input_context)
+
+lambda_layer = Lambda(
+    lambda x: K.mean(x, axis=1),
+    output_shape=(embedding_dim,)
+)(embedding_layer)
+
+output_layer = Dense(
+    vocab_size,
+    activation='softmax'
+)(lambda_layer)
+
+cbow_model = Model(
+    inputs=input_context,
+    outputs=output_layer
+)
+
+cbow_model.compile(
+    optimizer='adam',
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+print("\nTraining the CBOW model...")
+
+cbow_model.fit(
+    X_context_padded,
+    y_target_one_hot,
+    epochs=500,
+    verbose=0
+)
+
+print("Training complete.")
+
+word_embeddings = cbow_model.layers[1].get_weights()[0]
+
+print("\nLearned Word Embeddings:")
+
+for word, i in word_index.items():
+    if i < vocab_size:
+        print(f"Word: '{word}', Vector: {word_embeddings[i][:5]}...")
+
+
+
+
+
